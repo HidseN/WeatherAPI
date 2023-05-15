@@ -24,8 +24,12 @@ app.get("/weather/current", async function (req, res) {
 
     res.send(result);
   } catch (error) {
-    console.error("Error retrieving weather data:", error.message);
-    res.status(500).send("Error retrieving weather data");
+    if (error.response.status === 404) {
+      res.status(404).send("Please enter a valid city");
+    } else {
+      console.error("Error retrieving weather data:", error.message);
+      res.status(500).send("Error retrieving weather data");
+    }
   }
 });
 
@@ -38,22 +42,25 @@ app.get("/weather/forecast", async function (req, res) {
     const response = await axios.get(url);
     const weatherData = response.data;
     const weatherForecast = [];
-    for (let i = 0; i < weatherData.list.length; i++) {
+    for (let i = 0; i < weatherData.list.length; i += 8) {
       const day = {
         cityName: query,
-        date: weatherData.list[0].dt_txt,
-        weatherDescription: weatherData.list[0].weather[0].description,
-        temperature: weatherData.list[0].main.temp,
-        humidity: weatherData.list[0].main.humidity,
+        date: weatherData.list[i].dt_txt,
+        weatherDescription: weatherData.list[i].weather[0].description,
+        temperature: weatherData.list[i].main.temp,
+        humidity: weatherData.list[i].main.humidity,
       };
-
       weatherForecast.push(day);
     }
 
     res.send(weatherForecast);
   } catch (error) {
-    console.error("Error retrieving weather data:", error.message);
-    res.status(500).send("Error retrieving weather data");
+    if (error.response.status === 404) {
+      res.status(404).send("Please enter a valid city");
+    } else {
+      console.error("Error retrieving weather data:", error.message);
+      res.status(500).send("Error retrieving weather data");
+    }
   }
 });
 
@@ -67,21 +74,38 @@ app.get("/weather/history", async function (req, res) {
   const startDate = Math.round(new Date(start).getTime() / 1000);
   const endDate = Math.round(new Date(end).getTime() / 1000);
 
-  const url = `https://history.openweathermap.org/data/2.5/history/city?q=${query}&type=hour&start=${startDate}&end=${endDate}&appid=${apiKey}`;
-  const weatherResponse = await axios.get(url);
-  const weatherData = weatherResponse.data;
+  try {
+    const url = `https://history.openweathermap.org/data/2.5/history/city?q=${query}&type=hour&units=metric&start=${startDate}&end=${endDate}&appid=${apiKey}`;
+    const weatherResponse = await axios.get(url);
+    const weatherData = weatherResponse.data;
 
-  console.log(weatherData);
+    const days = [];
 
-  const result = {
-    cityName: query,
-    weatherDescription: weatherData.current.weather[0].description,
-    temperature: weatherData.current.temp,
-    humidity: weatherData.current.humidity,
-    icon: weatherData.current.weather[0].icon,
-  };
+    for (let i = 0; i < weatherData.list.length; i += 24) {
+      const date = new Date(weatherData.list[i].dt * 1000);
 
-  res.send(result);
+      const result = {
+        cityName: query,
+        weatherDescription: weatherData.list[i].weather[0].description,
+        temperature: weatherData.list[i].main.temp,
+        humidity: weatherData.list[i].main.humidity,
+        date: date.toLocaleString(),
+      };
+
+      console.log(result);
+
+      days.push(result);
+    }
+
+    res.send(days);
+  } catch (error) {
+    if (error.response.status === 404) {
+      res.status(404).send("Please enter a valid city");
+    } else {
+      console.error("Error retrieving weather data:", error.message);
+      res.status(500).send("Error retrieving weather data");
+    }
+  }
 });
 
 app.listen(3000, function () {
