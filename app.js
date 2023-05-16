@@ -3,8 +3,15 @@ const axios = require("axios");
 require("dotenv").config();
 // Added users from local JSON file to keep it simple, rather than implementing mongoDB
 const users = require("./users.json");
+// Caching
+const NodeCache = require("node-cache");
+const myCache = new NodeCache({ checkperiod: 600 });
+// Swagger
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger.json");
 
 const app = express();
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 let auth = false;
 
@@ -43,18 +50,38 @@ app.get("/weather/current", async function (req, res) {
     const url = `https://api.openweathermap.org/data/2.5/weather?appid=${apiKey}&q=${query}&units=metric`;
 
     try {
-      const response = await axios.get(url);
-      const weatherData = response.data;
+      let cachedData = myCache.get("currentWeather");
 
-      const result = {
-        cityName: query,
-        weatherDescription: weatherData.weather[0].description,
-        temperature: weatherData.main.temp,
-        humidity: weatherData.main.humidity,
-        icon: weatherData.weather[0].icon,
-      };
+      if (cachedData !== undefined) {
+        const weatherData = cachedData;
+        const result = {
+          cityName: query,
+          weatherDescription: weatherData.weather[0].description,
+          temperature: weatherData.main.temp,
+          humidity: weatherData.main.humidity,
+          icon: weatherData.weather[0].icon,
+        };
 
-      res.send(result);
+        console.log("Cached data displayed.");
+        res.send(result);
+      } else {
+        const response = await axios.get(url);
+        const weatherData = response.data;
+
+        cachedData = myCache.set("currentWeather", weatherData, 600);
+        cachedData = myCache.get("currentWeather");
+
+        const result = {
+          cityName: query,
+          weatherDescription: weatherData.weather[0].description,
+          temperature: weatherData.main.temp,
+          humidity: weatherData.main.humidity,
+          icon: weatherData.weather[0].icon,
+        };
+
+        console.log("Data retrieved from API call.");
+        res.send(result);
+      }
     } catch (error) {
       if (error.response.status === 404) {
         res.status(404).send("Please enter a valid city");
@@ -79,21 +106,43 @@ app.get("/weather/forecast", async function (req, res) {
     const url = `https://api.openweathermap.org/data/2.5/forecast?q=${query}&units=metric&appid=${apiKey}`;
 
     try {
-      const response = await axios.get(url);
-      const weatherData = response.data;
-      const weatherForecast = [];
-      for (let i = 0; i < weatherData.list.length; i += 8) {
-        const day = {
-          cityName: query,
-          date: weatherData.list[i].dt_txt,
-          weatherDescription: weatherData.list[i].weather[0].description,
-          temperature: weatherData.list[i].main.temp,
-          humidity: weatherData.list[i].main.humidity,
-        };
-        weatherForecast.push(day);
-      }
+      let cachedData = myCache.get("currentWeather");
 
-      res.send(weatherForecast);
+      if (cachedData !== undefined) {
+        const weatherData = cachedData;
+        const weatherForecast = [];
+        for (let i = 0; i < weatherData.list.length; i += 8) {
+          const day = {
+            cityName: query,
+            date: weatherData.list[i].dt_txt,
+            weatherDescription: weatherData.list[i].weather[0].description,
+            temperature: weatherData.list[i].main.temp,
+            humidity: weatherData.list[i].main.humidity,
+          };
+          weatherForecast.push(day);
+        }
+        console.log("Cached data displayed");
+        res.send(weatherForecast);
+      } else {
+        const response = await axios.get(url);
+        const weatherData = response.data;
+
+        cachedData = myCache.set("currentWeather", weatherData, 600);
+        cachedData = myCache.get("currentWeather");
+        const weatherForecast = [];
+        for (let i = 0; i < weatherData.list.length; i += 8) {
+          const day = {
+            cityName: query,
+            date: weatherData.list[i].dt_txt,
+            weatherDescription: weatherData.list[i].weather[0].description,
+            temperature: weatherData.list[i].main.temp,
+            humidity: weatherData.list[i].main.humidity,
+          };
+          weatherForecast.push(day);
+        }
+        console.log("Data retrieved from API call.");
+        res.send(weatherForecast);
+      }
     } catch (error) {
       if (error.response.status === 404) {
         res.status(404).send("Please enter a valid city");
@@ -113,6 +162,7 @@ app.get("/weather/history", async function (req, res) {
     );
   } else {
     const query = req.query.cityName;
+    console.log(query);
     const apiKey = process.env.API_KEY;
     const start = req.query.startDate;
     const end = req.query.endDate;
@@ -122,27 +172,51 @@ app.get("/weather/history", async function (req, res) {
     const endDate = Math.round(new Date(end).getTime() / 1000);
 
     try {
-      const url = `https://history.openweathermap.org/data/2.5/history/city?q=${query}&type=hour&units=metric&start=${startDate}&end=${endDate}&appid=${apiKey}`;
-      const weatherResponse = await axios.get(url);
-      const weatherData = weatherResponse.data;
+      let cachedData = myCache.get("currentWeather");
 
-      const days = [];
+      if (cachedData !== undefined) {
+        const weatherData = cachedData;
 
-      for (let i = 0; i < weatherData.list.length; i += 24) {
-        const date = new Date(weatherData.list[i].dt * 1000);
+        const days = [];
 
-        const result = {
-          cityName: query,
-          weatherDescription: weatherData.list[i].weather[0].description,
-          temperature: weatherData.list[i].main.temp,
-          humidity: weatherData.list[i].main.humidity,
-          date: date.toLocaleString(),
-        };
+        for (let i = 0; i < weatherData.list.length; i += 24) {
+          const date = new Date(weatherData.list[i].dt * 1000);
 
-        days.push(result);
+          const result = {
+            cityName: query,
+            weatherDescription: weatherData.list[i].weather[0].description,
+            temperature: weatherData.list[i].main.temp,
+            humidity: weatherData.list[i].main.humidity,
+            date: date.toLocaleString(),
+          };
+          days.push(result);
+        }
+        console.log("Cached data displayed.");
+        res.send(days);
+      } else {
+        const url = `https://history.openweathermap.org/data/2.5/history/city?q=${query}&type=hour&units=metric&start=${startDate}&end=${endDate}&appid=${apiKey}`;
+        const response = await axios.get(url);
+        const weatherData = response.data;
+
+        cachedData = myCache.set("currentWeather", weatherData, 600);
+        cachedData = myCache.get("currentWeather");
+        const days = [];
+
+        for (let i = 0; i < weatherData.list.length; i += 24) {
+          const date = new Date(weatherData.list[i].dt * 1000);
+
+          const result = {
+            cityName: query,
+            weatherDescription: weatherData.list[i].weather[0].description,
+            temperature: weatherData.list[i].main.temp,
+            humidity: weatherData.list[i].main.humidity,
+            date: date.toLocaleString(),
+          };
+          days.push(result);
+        }
+        console.log("Data retrieved from API call");
+        res.send(days);
       }
-
-      res.send(days);
     } catch (error) {
       if (error.response.status === 404) {
         res.status(404).send("Please enter a valid city");
