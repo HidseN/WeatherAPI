@@ -1,7 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 require("dotenv").config();
-// Added users from local JSON file to keep it simple, rather than implementing mongoDB
+// Added users from local JSON file to keep it simple, rather than implementing MongoDB
 const users = require("./users.json");
 // Caching
 const NodeCache = require("node-cache");
@@ -15,7 +15,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 let auth = false;
 
-app.get("/auth", function (req, res) {
+app.get("/weather/auth", function (req, res) {
   const email = req.query.email;
   const password = req.query.password;
 
@@ -30,8 +30,8 @@ app.get("/auth", function (req, res) {
 
   if (contains) {
     auth = true;
-    console.log("Logged in");
-    res.send("Logged in");
+    console.log("You have successfully authenticated!");
+    res.send("You have successfully authenticated!");
   } else {
     res.send("Please enter an existing user info! ");
   }
@@ -41,7 +41,7 @@ app.get("/weather/current", async function (req, res) {
   if (!auth) {
     console.log("Not logged in");
     res.send(
-      "You are not authenticated! Please log in to access this information!"
+      "##You are not authenticated!## Log in to get access to information!"
     );
   } else {
     console.log(req.query.cityName);
@@ -52,7 +52,7 @@ app.get("/weather/current", async function (req, res) {
     try {
       let cachedData = myCache.get("currentWeather");
 
-      if (cachedData !== undefined) {
+      if (cachedData !== undefined && cachedData.name === query) {
         const weatherData = cachedData;
         const result = {
           cityName: query,
@@ -70,6 +70,7 @@ app.get("/weather/current", async function (req, res) {
 
         cachedData = myCache.set("currentWeather", weatherData, 600);
         cachedData = myCache.get("currentWeather");
+        console.log(cachedData.name);
 
         const result = {
           cityName: query,
@@ -97,7 +98,7 @@ app.get("/weather/forecast", async function (req, res) {
   if (!auth) {
     console.log("Not logged in");
     res.send(
-      "You are not authenticated! Please log in to access this information!"
+      "##You are not authenticated!## Log in to get access to information!"
     );
   } else {
     const query = req.query.cityName;
@@ -106,9 +107,9 @@ app.get("/weather/forecast", async function (req, res) {
     const url = `https://api.openweathermap.org/data/2.5/forecast?q=${query}&units=metric&appid=${apiKey}`;
 
     try {
-      let cachedData = myCache.get("currentWeather");
+      let cachedData = myCache.get("weatherForecast");
 
-      if (cachedData !== undefined) {
+      if (cachedData !== undefined && cachedData.city.name === query) {
         const weatherData = cachedData;
         const weatherForecast = [];
         for (let i = 0; i < weatherData.list.length; i += 8) {
@@ -127,8 +128,8 @@ app.get("/weather/forecast", async function (req, res) {
         const response = await axios.get(url);
         const weatherData = response.data;
 
-        cachedData = myCache.set("currentWeather", weatherData, 600);
-        cachedData = myCache.get("currentWeather");
+        cachedData = myCache.set("weatherForecast", weatherData, 600);
+        cachedData = myCache.get("weatherForecast");
         const weatherForecast = [];
         for (let i = 0; i < weatherData.list.length; i += 8) {
           const day = {
@@ -154,15 +155,16 @@ app.get("/weather/forecast", async function (req, res) {
   }
 });
 
+let cityId = 0;
+
 app.get("/weather/history", async function (req, res) {
   if (!auth) {
     console.log("Not logged in");
     res.send(
-      "You are not authenticated! Please log in to access this information!"
+      "##You are not authenticated!## Log in to get access to information!"
     );
   } else {
-    const query = req.query.cityName;
-    console.log(query);
+    const query = req.query.cityNameAndCountryCode;
     const apiKey = process.env.API_KEY;
     const start = req.query.startDate;
     const end = req.query.endDate;
@@ -172,10 +174,11 @@ app.get("/weather/history", async function (req, res) {
     const endDate = Math.round(new Date(end).getTime() / 1000);
 
     try {
-      let cachedData = myCache.get("currentWeather");
+      let cachedData = myCache.get("weatherHistory");
 
-      if (cachedData !== undefined) {
+      if (cachedData !== undefined && cachedData.city_id === cityId) {
         const weatherData = cachedData;
+        console.log(query);
 
         const days = [];
 
@@ -194,12 +197,14 @@ app.get("/weather/history", async function (req, res) {
         console.log("Cached data displayed.");
         res.send(days);
       } else {
+        console.log(query);
         const url = `https://history.openweathermap.org/data/2.5/history/city?q=${query}&type=hour&units=metric&start=${startDate}&end=${endDate}&appid=${apiKey}`;
         const response = await axios.get(url);
         const weatherData = response.data;
 
-        cachedData = myCache.set("currentWeather", weatherData, 600);
-        cachedData = myCache.get("currentWeather");
+        cachedData = myCache.set("weatherHistory", weatherData, 600); //  600 seconds === 10 minutes, cached data will be deleted after this time
+        cachedData = myCache.get("weatherHistory");
+        cityId = cachedData.city_id;
         const days = [];
 
         for (let i = 0; i < weatherData.list.length; i += 24) {
@@ -218,6 +223,7 @@ app.get("/weather/history", async function (req, res) {
         res.send(days);
       }
     } catch (error) {
+      cityId = null;
       if (error.response.status === 404) {
         res.status(404).send("Please enter a valid city");
       } else {

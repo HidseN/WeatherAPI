@@ -1,0 +1,246 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "This is a simple example NodeJS API project to demonstrate Swagger Documentation",
+    "version": "1.0.0",
+    "title": "Tasks API",
+    "contact": {
+      "email": "abc@gmail.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "schemes": ["http"],
+  "host": "localhost:3000",
+  "basePath": "/weather",
+  "paths": {
+    "/current": {
+      "get": {
+        "summary": "Get current weather",
+        "description": "Get current weather for desired city",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "cityName",
+            "in": "query",
+            "description": "City to get weather for",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation, current weather displayed",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/currentResponse"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status value",
+            "schema": {
+              "$ref": "#/definitions/InvalidResponse"
+            }
+          }
+        }
+      }
+    },
+    "/forecast": {
+      "get": {
+        "summary": "Forecast for desired city",
+        "description": "Displays what will the weather be like for desired city.",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "cityName",
+            "in": "query",
+            "description": "City to get weather for",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation, weather forecast displayed",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/forecastResponse"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status value",
+            "schema": {
+              "$ref": "#/definitions/InvalidResponse"
+            }
+          }
+        }
+      }
+    },
+    "/history": {
+      "get": {
+        "summary": "Get weather history",
+        "description": "Displays what weather was like between entered dates",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "cityNameAndCountryCode",
+            "in": "query",
+            "description": "City to get weather for",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "startDate",
+            "description": "Start date for desired time interval",
+            "required": true,
+            "type": "string",
+            "format": "date"
+          },
+          {
+            "in": "query",
+            "name": "endDate",
+            "description": "End date for desired time interval",
+            "required": true,
+            "type": "string",
+            "format": "date"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation, weather history data displayed",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/historyResponse"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status value",
+            "schema": {
+              "$ref": "#/definitions/InvalidResponse"
+            }
+          }
+        }
+      }
+    },
+    "/auth": {
+      "get": {
+        "summary": "Authenticate user",
+        "description": "Authenticate user by email and password",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "description": "email",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "password",
+            "in": "query",
+            "description": "password",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "You have successfully authenticated",
+            "schema": {
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status value",
+            "schema": {
+              "$ref": "#/definitions/InvalidResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "currentResponse": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "humidity": {
+          "type": "integer"
+        }
+      }
+    },
+    "forecastResponse": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "humidity": {
+          "type": "integer"
+        }
+      }
+    },
+    "historyResponse": {
+      "type": "object",
+      "properties": {
+        "city": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "humidity": {
+          "type": "integer"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "InvalidResponse": {
+      "type": "object",
+      "properties": {
+        "statusCode": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
